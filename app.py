@@ -1,6 +1,5 @@
 import streamlit as st
 
-st.set_page_title("Assistant Canin IA")
 st.title("🐕 Assistant Canin en Temps Réel")
 st.write("Analysez le comportement de votre chien instantanément.")
 
@@ -13,7 +12,6 @@ if st.button("Lancer l'analyse"):
     if description_situation:
         with st.spinner("Analyse du comportement en cours..."):
             
-            # Simulation intelligente de l'analyse comportementale (rapide et sans bug)
             texte_lower = description_situation.lower()
             
             if "faim" in texte_lower or "gamelle" in texte_lower or "cuisine" in texte_lower:
@@ -23,7 +21,7 @@ if st.button("Lancer l'analyse"):
             elif "joue" in texte_lower or "balle" in texte_lower:
                 conseil = "C'est l'heure de jouer ! Lance-moi ce truc !"
             else:
-                conseil = "Je veille au grain, tout est sous contrôle humain !"
+                conseil = "Je veille au grain, tout est sous contrôle !"
 
             st.success("Analyse terminée !")
             st.markdown(
