@@ -1,5 +1,6 @@
 streamlit
-numpy
-Pillow
 opencv-python-headless
+numpy
+google-generativeai
+
 
