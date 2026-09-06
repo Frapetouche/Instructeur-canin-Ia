@@ -1,12 +1,18 @@
 import tempfile
 import cv2
+import google.generativeai as genai
 import numpy as np
 import streamlit as st
 
-st.title("🐕 Assistant Canin - Expertise Comportementale Avancée")
+# Configuration de l'API Gemini (assurez-vous d'avoir configuré votre clé API dans les secrets Streamlit ou via st.sidebar)
+# st.secrets["GOOGLE_API_KEY"] doit être défini
+if "GOOGLE_API_KEY" in st.secrets:
+  genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+
+st.title("🐕 Assistant Canin - Expertise Comportementale Multimodale")
 st.write(
-    "Téléchargez une courte vidéo pour analyser la cinétique, la régularité et"
-    " les indices posturaux de votre chien."
+    "Téléchargez une courte vidéo pour croiser une analyse cinétique locale et"
+    " une analyse experte par IA Vision de la posture de votre chien."
 )
 
 uploaded_video = st.file_uploader(
@@ -14,98 +20,119 @@ uploaded_video = st.file_uploader(
 )
 
 if uploaded_video is not None:
-  tfile = tempfile.NamedTemporaryFile(delete=False)
+  tfile = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
   tfile.write(uploaded_video.read())
+  tfile.close()
 
+  # 1. Analyse cinétique OpenCV traditionnelle
   vidcap = cv2.VideoCapture(tfile.name)
   success, image1 = vidcap.read()
 
   motion_scores = []
   frames_analyzed = 0
+  frame_skip = 5
 
   if success:
     gray1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
+    frame_count = 0
     while True:
       success, image2 = vidcap.read()
       if not success:
         break
+
+      frame_count += 1
+      if frame_count % frame_skip != 0:
+        continue
+
       gray2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
       diff = cv2.absdiff(gray1, gray2)
       motion_scores.append(np.mean(diff))
       gray1 = gray2
       frames_analyzed += 1
 
+  vidcap.release()
+
   if frames_analyzed > 0:
     avg_motion = np.mean(motion_scores)
-    # Calcul de la variance pour détecter l'erraticité (pics de stress vs mouvement fluide)
     motion_variance = np.var(motion_scores)
   else:
     avg_motion = 0
     motion_variance = 0
 
+  # 2. Analyse contextuelle avancée via Gemini (IA Vision vidéo)
+  ai_analysis = None
   with st.spinner(
-      "Analyse éthologique et cinétique de la séquence en cours..."
+      "Analyse éthologique cinétique et vision IA de la séquence en cours..."
   ):
-    # Logique experte combinant intensité et régularité du mouvement
+    try:
+      # Upload du fichier vidéo vers l'API Gemini File API
+      video_file = genai.upload_file(path=tfile.name)
+
+      # Attente que le fichier soit traité par l'API
+      import time
+
+      while video_file.state.name == "PROCESSING":
+        time.sleep(2)
+        video_file = genai.get_file(video_file.name)
+
+      if video_file.state.name == "FAILED":
+        raise ValueError("Le traitement de la vidéo par l'IA a échoué.")
+
+      # Utilisation du modèle multimodal Gemini pour analyser le comportement canin
+      model = genai.GenerativeModel("gemini-2.5-flash")
+      prompt = (
+          "Agis en tant qu'éthologue canin expert. Visionne cette vidéo de chien"
+          " et analyse précisément : 1) Les signaux d'apaisement ou de stress"
+          " (regard, gueule, posture corporelle, queue). 2) Le niveau émotionnel"
+          " global. Fournis une synthèse claire, professionnelle et bienveillante"
+          " en français."
+      )
+
+      response = model.generate_content([video_file, prompt])
+      ai_analysis = response.text
+
+      # Nettoyage du fichier sur les serveurs Google après analyse
+      genai.delete_file(video_file.name)
+
+    except Exception as e:
+      ai_analysis = (
+          "Analyse IA indisponible (Vérifiez votre clé API Gemini ou le format"
+          f" de la vidéo). Erreur : {str(e)}"
+      )
+
+    # Logique cinétique de secours/complément
     if avg_motion < 1.5:
       etat = "État de repos ou de vigilance passive"
-      analyse_experte = (
-          "Le chien présente une très faible cinétique. Si les muscles sont"
-          " souples et la respiration lente, il s'agit d'un repos récupérateur"
-          " (sommeil paradoxal ou calme profond). Attention toutefois à"
-          " surveiller une éventuelle posture de figement si le corps est"
-          " rigide."
-      )
-      conseil = (
-          "Laissez-le tranquille, son équilibre émotionnel est stable."
-      )
+      conseil = "Laissez-le tranquille, son équilibre émotionnel est stable."
     elif avg_motion > 7.0 and motion_variance > 15.0:
       etat = "Agitation intense / Montée d'adrénaline"
-      analyse_experte = (
-          "Forte intensité couplée à une forte variance : les mouvements sont"
-          " saccadés et imprévisibles. Cela traduit souvent une excitation"
-          " débordante (jeu, attente d'une récompense) ou une décharge émotionnelle"
-          " suite à un pic de stress."
-      )
       conseil = (
           "Prévoyez une transition calme ou un exercice de flairage pour l'aider"
           " à redescendre en pression."
       )
     elif avg_motion > 5.0:
       etat = "Activité exploratoire ou dynamique"
-      analyse_experte = (
-          "Mouvement soutenu mais régulier. Le chien est engagé dans une action"
-          " physique structurée (course, interaction, résolution de"
-          " problème)."
-      )
       conseil = (
           "C'est une phase saine de dépense physique et mentale. Pensez à"
           " l'hydrater."
       )
     else:
       etat = "Attention focalisée / Statu quo interactif"
-      analyse_experte = (
-          "Activité modérée et stable. Le chien est en position d'écoute active"
-          " ou d'observation (attente d'instruction, analyse olfactive ou"
-          " visuelle de son environnement)."
-      )
       conseil = "Regardez s'il cherche le contact visuel ; il attend une guidance."
 
-    st.success("Analyse éthologique réussie !")
-    st.video(uploaded_video)
+    st.success("Analyse éthologique multimodale réussie !")
+    st.video(tfile.name)
 
-    st.markdown(
-        f"""
-        <div style="background-color: #f0f2f6; border: 2px solid #333; border-radius: 20px; padding: 20px; margin-top: 20px;">
-            <h3 style="margin:0; color: #111;">📊 Bilan Comportemental (Expert) :</h3>
-            <p style="font-size: 1.1em; color: #333; margin-top: 10px;"><b>Diagnostic évalué :</b> {etat}</p>
-            <p style="font-size: 1.05em; color: #444; margin-top: 5px;"><b>Lecture éthologique :</b> {analyse_experte}</p>
-            <hr style="border: 0; border-top: 1px solid #ccc; margin: 15px 0;">
-            <p style="font-size: 1.2em; font-weight: bold; color: #d9534f; margin: 0;">Recommandation : "{conseil}"</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown("### 📊 Bilan Comportemental Avancé (Hybride OpenCV + IA)")
+
+    with st.container(border=True):
+      st.markdown(f"**Diagnostic cinétique évalué :** {etat}")
+      st.divider()
+      st.markdown("**Analyse Posturale & Éthologique (IA Vision) :**")
+      st.write(ai_analysis)
+      st.divider()
+      st.markdown(f"**Recommandation d'expert :** *\"{conseil}\"*")
+
 else:
   st.info("Téléchargez une vidéo de votre chien pour lancer l'analyse experte.")
-      
+    
