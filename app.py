@@ -1,25 +1,18 @@
 import streamlit as st
 
 st.title("🐕 Assistant Canin en Temps Réel")
-st.write("Prenez une photo de votre chien pour déclencher l'analyse immédiatement.")
+st.write("Prenez une photo de votre chien pour lancer l'analyse instantanément.")
 
-# Utilisation d'un compteur dans la mémoire de session pour réinitialiser à chaque nouvelle photo
-if "photo_count" not in st.session_state:
-    st.session_state.photo_count = 0
-
-def reset_analysis():
-    st.session_state.photo_count += 1
-
-# Le widget de caméra déclenche un changement d'état à chaque nouvelle prise
-photo_prise = st.camera_input("Photographiez votre chien", on_change=reset_analysis, key=f"cam_{st.session_state.photo_count}")
+# Widget caméra simple et stable
+photo_prise = st.camera_input("Photographiez votre chien")
 
 if photo_prise is not None:
-    with st.spinner("Analyse de la nouvelle photo en cours..."):
+    with st.spinner("Analyse de la photo en cours..."):
         
-        # Réponse générée instantanément pour chaque nouvelle prise
-        conseil = "Nouvelle photo détectée ! Je me demande bien ce que tu prépares..."
+        # Réponse instantanée basée sur la présence de la photo
+        conseil = "Photo bien reçue ! Je suis là, qu'est-ce qu'on fait ?"
 
-        st.success("Analyse mise à jour !")
+        st.success("Analyse terminée !")
         st.markdown(
             f"""
             <div style="background-color: #f0f2f6; border: 2px solid #333; border-radius: 20px; padding: 20px; margin-top: 20px;">
@@ -30,5 +23,5 @@ if photo_prise is not None:
             unsafe_allow_html=True
         )
 else:
-    st.info("Prenez une photo pour lancer l'analyse des agents.")
+    st.info("Prenez une photo pour démarrer.")
         
